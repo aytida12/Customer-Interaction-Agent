@@ -25,6 +25,95 @@ const oAuth2Client = new google.auth.OAuth2(
 );
 oAuth2Client.setCredentials({ refresh_token: process.env.GOOGLE_REFRESH_TOKEN });
 
+// OAuth callback handler (for token refresh flow)
+app.get('/auth/callback', async (req, res) => {
+  const code = req.query.code;
+  const error = req.query.error;
+
+  if (error) {
+    return res.status(400).json({ error, error_description: req.query.error_description });
+  }
+
+  if (!code) {
+    return res.status(400).json({ error: 'Missing authorization code' });
+  }
+
+  try {
+    const { tokens } = await oAuth2Client.getToken(code);
+    logger.info('OAuth tokens received', { hasRefreshToken: !!tokens.refresh_token });
+
+    // Return tokens in JSON and also as HTML for easy viewing
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>OAuth Token - Customer Interaction Agent</title>
+        <style>
+          body { font-family: monospace; margin: 40px; }
+          .token { background: #f0f0f0; padding: 15px; border-radius: 5px; margin: 10px 0; }
+          .refresh-token { background: #e8f5e9; padding: 15px; border-radius: 5px; margin: 10px 0; word-break: break-all; }
+          h2 { color: #333; }
+          .warning { color: #ff9800; font-weight: bold; }
+          button { padding: 10px 20px; cursor: pointer; }
+        </style>
+      </head>
+      <body>
+        <h1>✅ OAuth Authorization Successful</h1>
+        <p>Copy the <strong>refresh_token</strong> value below into your <code>.env</code> file:</p>
+        
+        <h2>Tokens Received:</h2>
+        <div class="token">
+          <strong>access_token:</strong><br/>
+          ${tokens.access_token.substring(0, 50)}...
+        </div>
+        
+        ${tokens.refresh_token ? `
+        <div class="refresh-token">
+          <strong>refresh_token:</strong><br/>
+          <code>${tokens.refresh_token}</code>
+          <br/><br/>
+          <button onclick="navigator.clipboard.writeText('${tokens.refresh_token}'); alert('Copied to clipboard!');">📋 Copy refresh_token</button>
+        </div>
+        ` : `
+        <div style="background: #ffebee; padding: 15px; border-radius: 5px; color: #c62828;">
+          <strong>⚠️ No refresh_token returned.</strong><br/>
+          This usually means you previously authorized this app for the same account.
+          <br/><br/>
+          <strong>Fix:</strong> Revoke access at <a href="https://myaccount.google.com/security" target="_blank">myaccount.google.com/security</a>
+          (Third-party apps → find your app → Remove Access), then re-run the auth flow.
+        </div>
+        `}
+        
+        <h2>Next Steps:</h2>
+        <ol>
+          <li>Copy the <code>refresh_token</code> value</li>
+          <li>Paste it into your <code>.env</code> as <code>GOOGLE_REFRESH_TOKEN=&lt;value&gt;</code></li>
+          <li>Restart your server: <code>npm run dev</code></li>
+          <li>Test with: <code>curl http://localhost:3000/init</code></li>
+        </ol>
+      </body>
+      </html>
+    `;
+    res.set('Content-Type', 'text/html');
+    res.send(html);
+  } catch (error) {
+    logger.error('Error exchanging code for tokens', { error: error.message });
+    const errorHtml = `
+      <!DOCTYPE html>
+      <html>
+      <head><title>OAuth Error</title><style>body { font-family: monospace; margin: 40px; color: #c62828; }</style></head>
+      <body>
+        <h1>❌ OAuth Error</h1>
+        <p><strong>Error:</strong> ${error.message}</p>
+        <p><strong>Details:</strong> ${error.response?.data?.error_description || error.response?.data?.error || 'Unknown error'}</p>
+        <p><a href="javascript:history.back()">Go back and try again</a></p>
+      </body>
+      </html>
+    `;
+    res.status(400).set('Content-Type', 'text/html').send(errorHtml);
+  }
+});
+
 const llmManager = new LLMManager(process.env.OPENAI_API_KEY);
 const calendarManager = new CalendarManager(
   oAuth2Client,
@@ -49,8 +138,15 @@ app.get('/init', async (req, res) => {
     await sheetsManager.initializeSheet();
     res.json({ success: true, message: 'Sheet initialized' });
   } catch (error) {
-    logger.error('Error initializing sheet:', error);
-    res.status(500).json({ error: 'Failed to initialize sheet' });
+    // Log full error for debugging
+    logger.error('Error initializing sheet', { message: error.message, stack: error.stack });
+    // Return helpful error details in development to aid debugging
+    const payload = { error: 'Failed to initialize sheet' };
+    if (process.env.NODE_ENV !== 'production') {
+      payload.details = error.message;
+      payload.stack = error.stack;
+    }
+    res.status(500).json(payload);
   }
 });
 
