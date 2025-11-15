@@ -1,0 +1,157 @@
+[
+  {
+    "name": "lookup_availability",
+    "description": "Find available appointment slots for a service within a date range and time preferences.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "service_type": {
+          "type": "string",
+          "description": "Type of service requested (e.g., plumbing, electrical, cleaning)"
+        },
+        "start_date": {
+          "type": "string",
+          "format": "date",
+          "description": "Start date for searching availability (YYYY-MM-DD)"
+        },
+        "end_date": {
+          "type": "string",
+          "format": "date",
+          "description": "End date for searching availability (YYYY-MM-DD)"
+        },
+        "time_of_day": {
+          "type": "string",
+          "enum": ["morning", "afternoon", "evening", "any"],
+          "description": "Preferred time window"
+        },
+        "duration_minutes": {
+          "type": "integer",
+          "description": "Estimated appointment duration in minutes"
+        }
+      },
+      "required": [
+        "service_type",
+        "start_date",
+        "end_date",
+        "duration_minutes"
+      ]
+    }
+  },
+  {
+    "name": "book_appointment",
+    "description": "Book an appointment on the business Google Calendar.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "service_type": {
+          "type": "string",
+          "description": "Type of service to book"
+        },
+        "customer_name": {
+          "type": "string",
+          "description": "Customer's full name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer's phone number"
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer's email address (optional)"
+        },
+        "start_time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Appointment start time (ISO 8601)"
+        },
+        "end_time": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Appointment end time (ISO 8601)"
+        },
+        "address": {
+          "type": "string",
+          "description": "Service location address"
+        },
+        "notes": {
+          "type": "string",
+          "description": "Additional notes about the appointment"
+        }
+      },
+      "required": [
+        "service_type",
+        "customer_name",
+        "phone",
+        "start_time",
+        "end_time"
+      ]
+    }
+  },
+  {
+    "name": "save_lead",
+    "description": "Save lead info to CRM (Google Sheets or database).",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "customer_name": {
+          "type": "string",
+          "description": "Customer's full name"
+        },
+        "phone": {
+          "type": "string",
+          "description": "Customer's phone number"
+        },
+        "email": {
+          "type": "string",
+          "description": "Customer's email address (optional)"
+        },
+        "service_type": {
+          "type": "string",
+          "description": "Type of service requested"
+        },
+        "address": {
+          "type": "string",
+          "description": "Service location address"
+        },
+        "message": {
+          "type": "string",
+          "description": "Original customer message"
+        },
+        "source": {
+          "type": "string",
+          "enum": ["sms", "website", "other"],
+          "description": "Source channel of the lead"
+        },
+        "agent_notes": {
+          "type": "string",
+          "description": "Internal notes from AI agent"
+        }
+      },
+      "required": [
+        "phone",
+        "service_type"
+      ]
+    }
+  },
+  {
+    "name": "send_message",
+    "description": "Send an SMS or chat reply to the customer via Twilio.",
+    "parameters": {
+      "type": "object",
+      "properties": {
+        "to": {
+          "type": "string",
+          "description": "Recipient phone number"
+        },
+        "body": {
+          "type": "string",
+          "description": "Message body (max 160 chars per SMS)"
+        }
+      },
+      "required": [
+        "to",
+        "body"
+      ]
+    }
+  }
+]
